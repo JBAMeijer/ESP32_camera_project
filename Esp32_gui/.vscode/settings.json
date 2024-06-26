@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "raylib.h": "c",
+        "*.tcc": "c",
+        "cstdlib": "c",
+        "memory": "c",
+        "new": "c",
+        "utils.h": "c",
+        "general.h": "c",
+        "stdio.h": "c",
+        "inet.h": "c",
+        "stdint.h": "c",
+        "random": "c"
+    }
+}

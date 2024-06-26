@@ -1,0 +1,16 @@
+.{
+    .name = "raylibc",
+    .version = "0.0.0",
+
+    .dependencies = .{
+        .raylib = .{ .path = "libs/raylib" },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        //"LICENSE",
+        //"README.md",
+    },
+}

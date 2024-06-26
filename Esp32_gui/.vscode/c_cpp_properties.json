@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "name": "RaylibC",
+            "includePath": [
+                "/home/joey/Code/RaylibC/libs/raygui/src",
+                "/home/joey/Code/RaylibC/libs/raylib/src",
+                "/home/joey/Code/RaylibC/libs/raygui/styles/dark",
+                "/home/joey/Code/RaylibC/include"
+            ]
+        }
+    ],
+    "version": 4
+}
