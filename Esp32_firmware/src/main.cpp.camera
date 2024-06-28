@@ -144,3 +144,19 @@ void loop() {
         }
     }
 }
+
+  // for(int i = 0; i < test_bench_count; i++)
+  // {
+  //   if(!test_bench_started[i]) {
+  //     char buf[32];
+  //     snprintf(buf, 32, "test_bench_%d", i);
+  //     benchmark_start(&benchmark[i], buf);
+  //     random_bench_time[i] = (esp_random() % (10000 - 1000)) + 1000;
+  //     bench_start_time[i] = millis();
+  //     test_bench_started[i] = true;
+  //   } else if(bench_start_time[i] + random_bench_time[i] < millis()) {
+  //     benchmark_stop(&benchmark[i]);
+  //     pc_wifi_interface_send_benchmark(&benchmark[i]);
+  //     test_bench_started[i] = false;
+  //   }
+  // }

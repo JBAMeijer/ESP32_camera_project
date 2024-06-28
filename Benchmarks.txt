@@ -1,0 +1,48 @@
+28-06-2024
+Benchmark test for copy with data in dram
+1:  benchmark: frame_copy 5875 us
+2:  benchmark: frame_copy 5741 us
+3:  benchmark: frame_copy 5839 us
+4:  benchmark: frame_copy 5645 us
+5:  benchmark: frame_copy 5756 us
+6:  benchmark: frame_copy 5666 us
+7:  benchmark: frame_copy 5904 us
+8:  benchmark: frame_copy 5750 us
+9:  benchmark: frame_copy 5630 us
+10: benchmark: frame_copy 5637 us
+11: benchmark: frame_copy 5883 us
+12: benchmark: frame_copy 5895 us
+
+average: 5768 us 
+
+benchmark test for copy with data in psram
+1:  benchmark: frame_copy 9220 us
+2:  benchmark: frame_copy 8789 us
+3:  benchmark: frame_copy 8838 us
+4:  benchmark: frame_copy 9143 us
+5:  benchmark: frame_copy 8798 us
+6:  benchmark: frame_copy 9086 us
+7:  benchmark: frame_copy 8516 us
+8:  benchmark: frame_copy 9147 us
+9:  benchmark: frame_copy 8915 us
+10: benchmark: frame_copy 8500 us
+11: benchmark: frame_copy 8796 us
+12: benchmark: frame_copy 9085 us
+
+average: 8903 us
+
+benchmark test for copy with data in psram, but framebuffer in dram
+1:  benchmark: frame_copy 5088 us
+2:  benchmark: frame_copy 5089 us
+3:  benchmark: frame_copy 5091 us
+4:  benchmark: frame_copy 5096 us
+5:  benchmark: frame_copy 5099 us
+6:  benchmark: frame_copy 5095 us
+7:  benchmark: frame_copy 5090 us
+8:  benchmark: frame_copy 5102 us
+9:  benchmark: frame_copy 5099 us
+10: benchmark: frame_copy 5092 us
+11: benchmark: frame_copy 5088 us
+12: benchmark: frame_copy 5095 us
+
+average: 5094 us

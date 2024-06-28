@@ -1,12 +1,13 @@
 #ifndef PC_INTERFACE_H_
 #define PC_INTERFACE_H_
 
-#include "benchmark.h"
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
+
+#include "benchmark.h"
+#include "operators.h"
 
 typedef enum
 {
@@ -42,5 +43,6 @@ void pc_wifi_interface_start(const char* SSID, const char* password);
 void pc_wifi_interface_reset();
 void pc_wifi_interface_update();
 void pc_wifi_interface_send_benchmark(benchmark_t* benchmark);
+void pc_wifi_interface_send_img(image_t* img, char* title);
 
 #endif /* PC_INTERFACE_H_ */

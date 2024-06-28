@@ -17,6 +17,9 @@ static rx_state_t rx_state;
 static bool rx_complete;
 static uint32_t rx_expected_len = 0;
 
+#define PC_IS_READY_FOR_IMG_TITLE  (0x00000001)
+#define PC_IS_READY_FOR_IMG_STRUCT (0x00000002)
+#define PC_IS_READY_FOR_IMG_DATA   (0x00000004)
 #define PC_IS_READY_FOR_BENCHMARK  (0x00000008)
 
 static uint32_t pc_is_ready = 0;
@@ -172,11 +175,34 @@ void pc_wifi_interface_process_rx_complete() {
             pc_wifi_interface_write(VERSION_ACK, buffer, 3);
         }
         break;
+        case IMAGE_TITLE_REQ:
+        {
+            // Set flag
+            pc_is_ready |= PC_IS_READY_FOR_IMG_TITLE;
+        }
+        break;
+        case IMAGE_STRUCT_REQ:
+        {
+            // Set flag
+            pc_is_ready |= PC_IS_READY_FOR_IMG_STRUCT;
+        }
+        break;
+        case IMAGE_DATA_REQ:
+        {
+            // Set flag
+            pc_is_ready |= PC_IS_READY_FOR_IMG_DATA;
+        }
+        break;
         case BENCHMARK_REQ:
         {
             // Set flag
-            Serial.println("Benchmark flag set");
             pc_is_ready |= PC_IS_READY_FOR_BENCHMARK;
+        }
+        break;
+        case IMAGE_TITLE_OR_BENCHMARK_REQ:
+        {
+            // Set flags
+            pc_is_ready |= (PC_IS_READY_FOR_IMG_TITLE | PC_IS_READY_FOR_BENCHMARK);
         }
         break;
     
@@ -202,4 +228,21 @@ void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
 
     pc_wifi_interface_write(BENCHMARK_ACK, (uint8_t*)benchmark, sizeof(benchmark_t));
     Serial.println("Benchmark send");
+}
+
+void pc_wifi_interface_send_img(image_t* img, char* title) {
+    // Wait until pc is ready
+    while(!(pc_is_ready & PC_IS_READY_FOR_IMG_TITLE) && wifi_client.connected()) {
+        pc_wifi_interface_process_rx_complete();
+        pc_wifi_interface_rx();
+    }
+
+    // stop when pc has disconnected
+    if(!wifi_client.connected())
+        return;
+
+    // Clear flags
+    pc_is_ready = 0;
+
+    pc_wifi_interface_write(IMAGE_TITLE_ACK, (uint8_t *)title, strlen(title));
 }
