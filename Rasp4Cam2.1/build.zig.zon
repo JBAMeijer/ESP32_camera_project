@@ -2,7 +2,7 @@
     .name = "zig_test",
     .version = "0.0.0",
     .dependencies = .{
-        .raylib = .{ .path = "libs/raylib" },
+        .raylib = .{ .path = "../submodules/raylib" },
     },
 
     .paths = .{
