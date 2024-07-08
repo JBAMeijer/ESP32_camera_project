@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "pc_interface.h": "c"
+        "pc_interface.h": "c",
+        "random": "cpp"
     }
 }

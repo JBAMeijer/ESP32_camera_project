@@ -42,6 +42,18 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(.{ .path = "libs/raygui/styles/dark" });
     exe.installHeader(.{ .path = "libs/raygui/styles/dark/style_dark.h" }, "style_dark.h");
 
+    exe.defineCMacro("BUILD_FROM_GUI", null);
+    exe.addIncludePath(.{ .path = "../Esp32_firmware/include/operators" });
+    exe.addCSourceFiles(.{
+        .files = &[_][]const u8{
+            "../Esp32_firmware/src/operators/operators.c",
+            "../Esp32_firmware/src/operators/operators_rgb565.c",
+        },
+        .flags = &[_][]const u8{
+            "-std=c11",
+        },
+    });
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

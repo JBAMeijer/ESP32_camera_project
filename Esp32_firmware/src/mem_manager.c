@@ -9,7 +9,7 @@
 
 #define BLOCK_SIZE (320 * 240 * 3)
 
-#define SDRAM_SIZE (4 * 1024 * 1024) // 4MB
+#define SDRAM_SIZE (2 * 1024 * 1024) // 4MB
 
 #define N_DATA_BLOCKS (SDRAM_SIZE / BLOCK_SIZE)
 

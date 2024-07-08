@@ -3,11 +3,13 @@
         {
             "name": "RaylibC",
             "includePath": [
-                "/home/joey/Code/RaylibC/libs/raygui/src",
-                "/home/joey/Code/RaylibC/libs/raylib/src",
-                "/home/joey/Code/RaylibC/libs/raygui/styles/dark",
-                "/home/joey/Code/RaylibC/include"
-            ]
+                "/home/joey/Code/Esp32_camera_project/Esp32_gui/libs/raygui/src",
+                "/home/joey/Code/Esp32_camera_project/Esp32_gui/libs/raylib/src",
+                "/home/joey/Code/Esp32_camera_project/Esp32_gui/libs/raygui/styles/dark",
+                "/home/joey/Code/Esp32_camera_project/Esp32_gui/include",
+                "/home/joey/Code/Esp32_camera_project/Esp32_firmware/include/operators"
+            ],
+            "defines": [ "BUILD_FROM_GUI" ]
         }
     ],
     "version": 4

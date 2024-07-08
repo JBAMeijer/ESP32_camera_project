@@ -10,6 +10,10 @@
         "stdio.h": "c",
         "inet.h": "c",
         "stdint.h": "c",
-        "random": "c"
+        "random": "c",
+        "operators.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
     }
 }

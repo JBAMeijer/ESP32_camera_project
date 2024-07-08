@@ -7,7 +7,7 @@
 #include <WiFiAP.h>
 
 #include "benchmark.h"
-#include "operators.h"
+#include "operators/operators.h"
 
 typedef enum
 {
@@ -43,6 +43,6 @@ void pc_wifi_interface_start(const char* SSID, const char* password);
 void pc_wifi_interface_reset();
 void pc_wifi_interface_update();
 void pc_wifi_interface_send_benchmark(benchmark_t* benchmark);
-void pc_wifi_interface_send_img(image_t* img, char* title);
+void pc_wifi_interface_send_img(image_t* img, const char* title);
 
 #endif /* PC_INTERFACE_H_ */

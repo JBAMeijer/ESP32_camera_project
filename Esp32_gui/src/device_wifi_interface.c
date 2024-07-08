@@ -14,15 +14,22 @@
 #include <errno.h>
 
 #include "raylib.h"
+#include "operators.h"
 
 #define MAX 80
 #define PORT 8080
 #define SA struct sockaddr
 #define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#define START_BUFFER_SIZE (320*240*2)
 
 const u8 DEVICE_VERSION_RQ_FRAME[] = { VERSION_REQ, 0, 0, 0, 0 };
 const u8 KEEP_ALIVE_RQ_FRAME[] = { KEEP_ALIVE_REQ, 0, 0, 0, 0 };
 const u8 BENCHMARK_RQ_FRAME[] = { BENCHMARK_REQ, 0, 0, 0, 0 };
+
+const u8 IMAGE_TITLE_RQ_FRAME[] = { IMAGE_TITLE_REQ, 0, 0, 0, 0 };
+const u8 IMAGE_STRUCT_RQ_FRAME[] = { IMAGE_STRUCT_REQ, 0, 0, 0, 0 };
+const u8 IMAGE_DATA_RQ_FRAME[] = { IMAGE_DATA_REQ, 0, 0, 0, 0 };
+const u8 IMAGE_TITLE_OR_BENCHMARK_RQ_FRAME[] = { IMAGE_TITLE_OR_BENCHMARK_REQ, 0, 0, 0, 0 };
 
 static bool _connected = false;
 static struct pollfd pfds[1];
@@ -35,15 +42,26 @@ static rx_state_t rx_state;
 static eFrameType frame_type;
 static u32 rx_expected_len;
 static bool rx_complete;
-static u8 rx_buffer[512] = {0};
+static u8 rx_buffer[4096] = {0};
+static u32 data_buffer_len = 0;
 static u8* data_buffer = NULL;
 
 static eDeviceDataState benchmark = IDLE;
 
-benchmarkFuncDef _benchmark_func = NULL;
-deviceVersionFuncDef _device_version_func = NULL;
+static image_t image_struct;
 
-s32 open_connection(deviceVersionFuncDef device_version_func, benchmarkFuncDef benchmark_func) {
+deviceVersionFuncDef _device_version_func = NULL;
+benchmarkFuncDef _benchmark_func = NULL;
+imageFuncDef _image_func = NULL;
+
+void handle_received_image_title(void);
+void handle_received_image_struct(void);
+void handle_received_image_data(void);
+void send_req_for_new_benchmark_or_image_title(void);
+void send_req_for_image_struct(void);
+void send_req_for_image_data(void);
+
+s32 open_connection(deviceVersionFuncDef device_version_func, benchmarkFuncDef benchmark_func, imageFuncDef image_func) {
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1) {
         printf("socket creation failed...\n");
@@ -82,11 +100,16 @@ s32 open_connection(deviceVersionFuncDef device_version_func, benchmarkFuncDef b
     setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
     _connected = true;
 
-    _benchmark_func = benchmark_func;
     _device_version_func = device_version_func;
+    _benchmark_func = benchmark_func;
+    _image_func = image_func;
+
+    if(data_buffer == NULL) {
+        data_buffer = malloc(START_BUFFER_SIZE);
+        data_buffer_len = START_BUFFER_SIZE;
+    }
 
     req_device_version();
-    send_req_for_new_benchmark();
 
     return(0);
 }
@@ -108,17 +131,12 @@ void pc_wifi_interface_rx() {
         }
 
         if(pfds[0].revents & POLLIN) {
-            u32 amount_of_bytes = read(sockfd, rx_buffer, 512);
-            printf("Received %d bytes\n", amount_of_bytes);
+            u32 amount_of_bytes = read(sockfd, rx_buffer, 4096);
+            //printf("Received %d bytes\n", amount_of_bytes);
 
             rx_cnt += amount_of_bytes;
-
+            //printf("rx_cnt %d\n", rx_cnt);
             if(rx_state == WAIT_FOR_HEADER && rx_cnt >= 5) {
-                if(rx_expected_len != 0) {
-                    MemFree(data_buffer);
-                    rx_expected_len = 0;
-                }
-
                 // retrieve data
                 frame_type = rx_buffer[0];
                 rx_expected_len |= (uint32_t)rx_buffer[1];
@@ -126,13 +144,20 @@ void pc_wifi_interface_rx() {
                 rx_expected_len |= (uint32_t)rx_buffer[3] << 16;
                 rx_expected_len |= (uint32_t)rx_buffer[4] << 24;
 
+                printf("Expected length data to receive: %d\n", rx_expected_len);
+
                 if(rx_expected_len == 0) {
                     // All data is here
                     rx_complete = true;
                     rx_state = WAIT_FOR_HEADER;
                 } else {
                     // More data expected
-                    data_buffer = MemAlloc(rx_expected_len*sizeof(u8));
+                    if(rx_expected_len > data_buffer_len) {
+                        MemFree(data_buffer);
+                        data_buffer = MemAlloc(rx_expected_len);
+                        data_buffer_len = rx_expected_len;
+                    }
+                    //data_buffer = MemAlloc(rx_expected_len*sizeof(u8));
                     if((rx_cnt - 5) == rx_expected_len) {
                         for(u32 i = 0; i < rx_expected_len; i++) {
                             data_buffer[i] = rx_buffer[i + 5];
@@ -141,12 +166,18 @@ void pc_wifi_interface_rx() {
                         rx_state = WAIT_FOR_HEADER;
                     } else {
                         rx_state = WAIT_FOR_DATA;
+                        u32 buffer_index = 5;
+                        for(u32 i = rx_cnt - amount_of_bytes; i < amount_of_bytes - 5; i++) {
+                            data_buffer[i] = rx_buffer[buffer_index];
+                            buffer_index++;
+                        }
                     }
                 }
             } else {
                 if((rx_state == WAIT_FOR_DATA) && ((rx_cnt - 5) == rx_expected_len)) {
                     u32 buffer_index = 0;
-                    for(u32 i = rx_cnt - amount_of_bytes - 5; i < amount_of_bytes; i++) {
+
+                    for(u32 i = rx_cnt - amount_of_bytes - 5; i < rx_cnt - 5; i++) {
                         data_buffer[i] = rx_buffer[buffer_index];
                         buffer_index++;
                     }
@@ -154,7 +185,7 @@ void pc_wifi_interface_rx() {
                     rx_state = WAIT_FOR_HEADER;
                 } else if((rx_state == WAIT_FOR_DATA) && ((rx_cnt - 5) != rx_expected_len)) {
                     u32 buffer_index = 0;
-                    for(u32 i = rx_cnt - amount_of_bytes - 5; i < amount_of_bytes; i++) {
+                    for(u32 i = rx_cnt - amount_of_bytes - 5; i < rx_cnt - 5; i++) {
                         data_buffer[i] = rx_buffer[buffer_index];
                         buffer_index++;
                     }
@@ -180,12 +211,31 @@ void pc_wifi_interface_process_rx_complete(void) {
         {
             printf("Device version\n");
             if(_device_version_func) _device_version_func(data_buffer[0], data_buffer[1], data_buffer[2]);
+            send_req_for_new_benchmark_or_image_title();
         }
         break;
         case BENCHMARK_ACK:
         {
             handle_received_benchmark_data();
-            send_req_for_new_benchmark();
+            send_req_for_new_benchmark_or_image_title();
+        }
+        break;
+        case IMAGE_TITLE_ACK:
+        {
+            handle_received_image_title();
+            send_req_for_image_struct();
+        }
+        break;
+        case IMAGE_STRUCT_ACK:
+        {
+            handle_received_image_struct();
+            send_req_for_image_data();
+        }
+        break;
+        case IMAGE_DATA_ACK:
+        {
+            handle_received_image_data();
+            send_req_for_new_benchmark_or_image_title();
         }
         break;
     
@@ -232,4 +282,71 @@ void device_wifi_interface_update(void) {
 
     pc_wifi_interface_rx(); 
     if(rx_complete) pc_wifi_interface_process_rx_complete();
+}
+
+void handle_received_image_title(void) {
+    printf("Received image title: %s\n", data_buffer);
+}
+
+void handle_received_image_struct(void) {
+    u32 cols = 0, rows = 0;
+    eImageView view = 0;
+    eImageType type = 0;
+    cols |= (u32)data_buffer[0];
+    cols |= (u32)data_buffer[1] << 8;
+    cols |= (u32)data_buffer[2] << 16;
+    cols |= (u32)data_buffer[3] << 24;
+    
+    rows |= (u32)data_buffer[4];
+    rows |= (u32)data_buffer[5] << 8;
+    rows |= (u32)data_buffer[6] << 16;
+    rows |= (u32)data_buffer[7] << 24;
+
+    view |= (u32)data_buffer[8];
+    view |= (u32)data_buffer[9] << 8;
+    view |= (u32)data_buffer[10] << 16;
+    view |= (u32)data_buffer[11] << 24;
+
+    type |= (u32)data_buffer[12];
+    type |= (u32)data_buffer[13] << 8;
+    type |= (u32)data_buffer[14] << 16;
+    type |= (u32)data_buffer[15] << 24;
+
+    image_struct.cols = cols;
+    image_struct.rows = rows;
+    image_struct.view = view;
+    image_struct.type = type;
+    image_struct.data = NULL;
+
+    printf("Image - Cols: %d, Rows: %d, View: %d, Type: %d\n", image_struct.cols, image_struct.rows, image_struct.view, image_struct.type);
+}
+
+void handle_received_image_data(void) {
+    image_struct.data = data_buffer;
+    if(_image_func) _image_func(&image_struct);
+    memset(data_buffer, 0, data_buffer_len);
+}
+
+void send_req_for_new_benchmark_or_image_title(void) {
+    if(send(sockfd, IMAGE_TITLE_OR_BENCHMARK_RQ_FRAME, sizeof(IMAGE_TITLE_OR_BENCHMARK_RQ_FRAME), 0) >= 0) {
+        printf("Succesfully send benchmark or image title req\n");
+    } else {
+        printf("sending of benchmark or image title request failed\n");
+    }
+}
+
+void send_req_for_image_struct(void) {
+    if(send(sockfd, IMAGE_STRUCT_RQ_FRAME, sizeof(IMAGE_STRUCT_RQ_FRAME), 0) >= 0) {
+        printf("Succesfully send image struct req\n");
+    } else {
+        printf("sending of image struct request failed\n");
+    }
+}
+
+void send_req_for_image_data(void) {
+    if(send(sockfd, IMAGE_DATA_RQ_FRAME, sizeof(IMAGE_DATA_RQ_FRAME), 0) >= 0) {
+        printf("Succesfully send image data req\n");
+    } else {
+        printf("sending of image data request failed\n");
+    }
 }

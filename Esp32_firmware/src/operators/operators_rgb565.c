@@ -1,10 +1,15 @@
-#include <Arduino.h>
-#include <esp_camera.h>
-#include "operators_rgb565.h"
+#if defined(BUILD_FROM_GUI)
+#include "operators.h"
+#include <stdlib.h> 
+#else
+    #include <Arduino.h>
+    #include <esp_camera.h>
+    #include "operators/operators_rgb565.h"
 
 
-#if defined(USE_MEM_MANAGER)
-#include "mem_manager.h"
+    #if defined(USE_MEM_MANAGER)
+    #include "mem_manager.h"
+    #endif
 #endif
 
 image_t *newRGB565Image(const uint32_t cols, const uint32_t rows) {
@@ -30,19 +35,3 @@ image_t *newRGB565Image(const uint32_t cols, const uint32_t rows) {
     img->type = IMGTYPE_RGB565;
     return(img);
 }
-
-void copy_framebuffer_to_rgb656Image(const camera_fb_t* bf, image_t* image) {
-    register long int i = bf->width * bf->height;
-    register rgb565_pixel_t *s = (rgb565_pixel_t *)bf->buf;
-    register rgb565_pixel_t *d = (rgb565_pixel_t *)image->data;
-
-    image->rows;
-    image->cols;
-    image->type = IMGTYPE_RGB565;
-    image->view = IMGVIEW_CLIP;
-
-    while(i-- > 0)
-        *d++ = *s++;
-}
-
-

@@ -67,21 +67,22 @@ void pc_wifi_interface_write(eFrameType type, uint8_t* buffer, uint32_t len) {
     //delay(50); // Give the system some time to send the data.
 
     if(len > 0) {
-        register uint32_t cnt = len;
-        register uint32_t n;
-        register uint32_t index = 0;
+        wifi_client.write(buffer, len);
+        // register uint32_t cnt = len;
+        // register uint32_t n;
+        // register uint32_t index = 0;
 
-        while((cnt > 0) && (wifi_client.connected())) {
-            if(cnt > 256) n = 256;
-            else n = cnt;
+        // while((cnt > 0) && (wifi_client.connected())) {
+        //     if(cnt > 512) n = 512;
+        //     else n = cnt;
 
-            bytes_send = wifi_client.write(&buffer[index], n);
-            if(bytes_send != n)
-                return;
+        //     bytes_send = wifi_client.write(&buffer[index], n);
+        //     if(bytes_send != n)
+        //         return;
             
-            index += n;
-            cnt -= n;
-        }
+        //     index += n;
+        //     cnt -= n;
+        // }
     }
 }
 
@@ -230,8 +231,10 @@ void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
     Serial.println("Benchmark send");
 }
 
-void pc_wifi_interface_send_img(image_t* img, char* title) {
+void pc_wifi_interface_send_img(image_t* img, const char* title) {
     // Wait until pc is ready
+    log_d("Device wants to send image title");
+    log_d("pc_is_ready byte: %d", pc_is_ready);
     while(!(pc_is_ready & PC_IS_READY_FOR_IMG_TITLE) && wifi_client.connected()) {
         pc_wifi_interface_process_rx_complete();
         pc_wifi_interface_rx();
@@ -244,5 +247,50 @@ void pc_wifi_interface_send_img(image_t* img, char* title) {
     // Clear flags
     pc_is_ready = 0;
 
-    pc_wifi_interface_write(IMAGE_TITLE_ACK, (uint8_t *)title, strlen(title));
+    pc_wifi_interface_write(IMAGE_TITLE_ACK, (uint8_t*)title, strlen(title));
+    log_d("image title send");
+
+    // Wait until PC is ready
+    log_d("Device wants to send image struct");
+    log_d("pc_is_ready byte: %d", pc_is_ready);
+    while(!(pc_is_ready & PC_IS_READY_FOR_IMG_STRUCT) && wifi_client.connected()) {
+        pc_wifi_interface_process_rx_complete();
+        pc_wifi_interface_rx();
+    }
+
+    // stop when pc has disconnected
+    if(!wifi_client.connected())
+        return;
+
+    // Clear flags
+    pc_is_ready = 0;
+
+    pc_wifi_interface_write(IMAGE_STRUCT_ACK, (uint8_t*)img, sizeof(image_t));
+    log_d("image struct send");
+
+    // Wait until pc is ready
+    log_d("Device wants to send image data");
+    log_d("pc_is_ready byte: %d", pc_is_ready);
+    while(!(pc_is_ready & PC_IS_READY_FOR_IMG_DATA) && wifi_client.connected()) {
+        pc_wifi_interface_process_rx_complete();
+        pc_wifi_interface_rx();
+    }
+
+    // stop when pc has disconnected
+    if(!wifi_client.connected())
+        return;
+
+    // Clear flags
+    pc_is_ready = 0;
+
+    uint32_t len = img->cols * img->rows;
+
+    if(img->type == IMGTYPE_RGB565) {
+        len = sizeof(rgb565_pixel_t) * img->cols * img->rows;
+    } else if(img->type == IMGTYPE_RGB888) {
+        len = sizeof(rgb888_pixel_t) * img->cols * img->rows;
+    }
+
+    pc_wifi_interface_write(IMAGE_DATA_ACK, img->data, len);
+    log_d("image data send");
 }

@@ -5,7 +5,7 @@
 
 #include "general.h"
 #include "benchmark.h"
-
+#include "operators.h"
 
 typedef enum {
     IDLE,
@@ -39,10 +39,11 @@ typedef enum {
     IMAGE_TITLE_OR_BENCHMARK_REQ,
 } eFrameType;
 
-typedef void (*benchmarkFuncDef)(benchmark_t);
 typedef void (*deviceVersionFuncDef)(s32, s32, s32);
+typedef void (*benchmarkFuncDef)(benchmark_t);
+typedef void (*imageFuncDef)(image_t*);
 
-s32 open_connection(deviceVersionFuncDef, benchmarkFuncDef);
+s32 open_connection(deviceVersionFuncDef, benchmarkFuncDef, imageFuncDef);
 void close_connection(void);
 void req_device_version(void);
 void pc_wifi_interface_rx(void);

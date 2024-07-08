@@ -6,11 +6,14 @@
 #define _OPERATORS_H_
 
 #include "stdint.h"
-#include "config.h"
-#include <esp_camera.h>
 
-#if defined(CAMERA_MODEL_XIAO_ESP32S3)
-#define USE_MEM_MANAGER
+#if !defined(BUILD_FROM_GUI)
+    #include <esp_camera.h>
+    #include "config.h"
+
+    #if defined(CAMERA_MODEL_XIAO_ESP32S3)
+        #define USE_MEM_MANAGER
+    #endif
 #endif
 
 // ----------------------------------------------------------------------------
@@ -23,6 +26,7 @@ typedef enum
     IMGTYPE_FLOAT  = 2,  // Float
     IMGTYPE_RGB888 = 3,  // RGB 8-bit per pixel
     IMGTYPE_RGB565 = 4,
+    IMGTYPE_JPEG   = 5,
   
     IMGTYPE_MAX    = 2147483647 // Max 32-bit int value,
                                 // forces enum to be 4 bytes
@@ -66,6 +70,7 @@ typedef struct
 {
     int32_t     cols;
     int32_t     rows;
+    int32_t     len;
     eImageView  view;
     eImageType  type;
     uint8_t    *data;
@@ -75,7 +80,9 @@ typedef struct
 // Creates a zero initialized image with the specified cols and rows
 image_t *newRGB565Image( const uint32_t cols, const uint32_t rows );
 
-void copy_framebuffer_to_rgb656Image(const camera_fb_t* bf, image_t* image);
+image_t *newJPEGImageFromData(const uint8_t* data, const uint32_t cols, const uint32_t rows, const uint32_t len);
+
+void deleteJPEGImage(image_t* img);
 
 #endif // _OPERATORS_H_
 

@@ -1,14 +1,22 @@
 //Server Code
 #include <Arduino.h>
 #include <esp_camera.h>
+#include <FS.h>
+#include <SD.h>
+#include <SPI.h>
 #include "config.h"
 #include "benchmark.h"
 #include "pc_interface.h"
 #include "camera_pins.h"
-#include "operators.h"
+#include "operators/operators.h"
 #include "mem_manager.h"
 
+void copy_framebuffer_to_rgb565Image(const camera_fb_t* bf, image_t* image);
+void writeFile(fs::FS &fs, const char* path, uint8_t* data, size_t len);
+
 image_t* cam;
+unsigned long ms = 2000;
+unsigned long ms_then = 0;
 
 const char* ssid = "Camera_AP";
 const char* password = "joeymeijer";
@@ -47,13 +55,13 @@ void setup() {
     config.pin_sccb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn = PWDN_GPIO_NUM;
     config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = 18000000;
+    config.xclk_freq_hz = 20000000;
     config.frame_size = FRAMESIZE_QVGA;
-    config.pixel_format = PIXFORMAT_RGB565;
+    config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode = CAMERA_GRAB_LATEST;
-    config.fb_location = CAMERA_FB_IN_DRAM;
-    //config.jpeg_quality = 12;
-    config.fb_count = 1;
+    config.fb_location = CAMERA_FB_IN_PSRAM;
+    config.jpeg_quality = 10;
+    config.fb_count = 2;
 
     esp_err_t err = esp_camera_init(&config);
     if(err != ESP_OK) {
@@ -70,27 +78,76 @@ void setup() {
 }
 
 void loop() {
-  delay(5000);
   pc_wifi_interface_update();
-  camera_fb_t* camera_fb = esp_camera_fb_get();
+  // unsigned long ms_now = millis();
+  // if(ms_now - ms_then >  ms) {
+
+    camera_fb_t* camera_fb = esp_camera_fb_get();
+    
+    printf("camera len: %d\n", camera_fb->len);
+    benchmark_t b;
+    benchmark_start(&b, "FrameJpgTo565");
+    jpg2rgb565(camera_fb->buf, camera_fb->len, cam->data, JPG_SCALE_NONE);
+    benchmark_stop(&b);
+    esp_camera_fb_return(camera_fb);
+    // writeFile(SD, "/image.jpg", camera_fb->buf, camera_fb->len);
+    
+    // printf("Cam - w: %d, h: %d, len: %d\n", camera_fb->width, camera_fb->height, camera_fb->len);
+    // printf("First five bytes framebuffer: %d, %d, %d, %d, %d\n", 
+    //   camera_fb->buf[0], camera_fb->buf[1], camera_fb->buf[2], camera_fb->buf[3], camera_fb->buf[4]);
+    // printf("First five bytes cam: %d, %d, %d, %d, %d\n", 
+    //   cam->data[0], cam->data[1], cam->data[2], cam->data[3], cam->data[4]);
+    
+    // benchmark_start(&b, "frame_copy");
+    // copy_framebuffer_to_rgb565Image(camera_fb, cam);
+    // benchmark_stop(&b);
+
+    // printf("First five bytes cam again: %d, %d, %d, %d, %d\n", 
+    //   cam->data[0], cam->data[1], cam->data[2], cam->data[3], cam->data[4]);
+    // printf("last five bytes cam: %d, %d, %d, %d, %d\n", 
+    //   cam->data[(320*240*2)-1], cam->data[(320*240*2)-2], cam->data[(320*240*2)-3], cam->data[(320*240*2)-4], cam->data[(320*240*2)-5]);
+
+    // char buf[50];
+    // benchmark_tostr(&b, buf);
+    // printf("%s", buf);
+
+    pc_wifi_interface_send_img(cam, "Cam image");
+    pc_wifi_interface_send_benchmark(&b);
+    // ms_then = ms_now;
+  // }
+  //delay(5000);
   
-  printf("Cam - w: %d, h: %d, len: %d\n", camera_fb->width, camera_fb->height, camera_fb->len);
-  printf("First five bytes framebuffer: %d, %d, %d, %d, %d\n", 
-    camera_fb->buf[0], camera_fb->buf[1], camera_fb->buf[2], camera_fb->buf[3], camera_fb->buf[4]);
-  printf("First five bytes cam: %d, %d, %d, %d, %d\n", 
-    cam->data[0], cam->data[1], cam->data[2], cam->data[3], cam->data[4]);
-  benchmark_t b;
-  
-  benchmark_start(&b, "frame_copy");
-  copy_framebuffer_to_rgb656Image(camera_fb, cam);
-  benchmark_stop(&b);
-  esp_camera_fb_return(camera_fb);
 
-  printf("First five bytes cam again: %d, %d, %d, %d, %d\n", 
-    cam->data[0], cam->data[1], cam->data[2], cam->data[3], cam->data[4]);
+}
 
-  char buf[50];
-  benchmark_tostr(&b, buf);
-  printf("%s", buf);
+void copy_framebuffer_to_rgb565Image(const camera_fb_t* bf, image_t* image) {
+    register long int i = bf->width * bf->height;
+    register rgb565_pixel_t *s = (rgb565_pixel_t *)bf->buf;
+    register rgb565_pixel_t *d = (rgb565_pixel_t *)image->data;
 
+    image->rows;
+    image->cols;
+    image->type = IMGTYPE_RGB565;
+    image->view = IMGVIEW_CLIP;
+
+    while(i-- > 0)
+        *d++ = *s++;
+}
+
+void writeFile(fs::FS &fs, const char* path, uint8_t* data, size_t len) {
+    Serial.printf("Writing file: %s\n", path);
+
+    File file = fs.open(path, FILE_WRITE);
+    if(!file) {
+        Serial.println("Failed to open file for writing");
+        return;
+    }
+
+    if(file.write(data, len) == len) {
+        Serial.println("File written");
+    } else {
+        Serial.println("Write failed");
+    }
+
+    file.close();
 }
