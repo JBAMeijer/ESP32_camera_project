@@ -22,11 +22,17 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include "raylib.h"
+#include "pc_interface.h"
+#include "benchmark.h"
 
 static int width = 800;
 static int height = 450;
 
+static uint8_t str_buf[50] = {0};
+
 int main(void) {
+    pc_wifi_interface_start();
+    
     InitWindow(width, height, "raylib [core] example - basic window");
     SetTargetFPS(30);
     SetTraceLogLevel(LOG_ERROR | LOG_WARNING | LOG_FATAL);
@@ -51,8 +57,8 @@ int main(void) {
     struct v4l2_format format;
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
-    format.fmt.pix.width = 1280;
-    format.fmt.pix.height = 720;
+    format.fmt.pix.width = 640;
+    format.fmt.pix.height = 480;
     
     if(ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
 	perror("VIDIOC_S_FMT");
@@ -200,9 +206,12 @@ int main(void) {
     float scale = 0.5;
     int texture_pos_x = (width - format.fmt.pix.width * scale) / 2;
     int texture_pos_y = (height - format.fmt.pix.height * scale) / 2;
+    benchmark_t b;
     
     while (!WindowShouldClose())
     {
+	pc_wifi_interface_update();
+	benchmark_start(&b, "Cam");
 	for(int i = 0; i < bufrequest.count; i++) {
 	    if(ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
 		perror("VIDIOC_QBUF");
@@ -214,6 +223,11 @@ int main(void) {
 		return(-1);
 	    }
 	}
+	benchmark_stop(&b);
+	benchmark_tostr(&b, str_buf);
+	
+	printf(str_buf);
+	pc_wifi_interface_send_benchmark(&b);
 	
 	Image image;
 	image.width = format.fmt.pix.width;
@@ -240,6 +254,7 @@ int main(void) {
     close(fd);
     
     CloseWindow();
-	
+    pc_wifi_interface_stop();
+    
     return(0);
 }

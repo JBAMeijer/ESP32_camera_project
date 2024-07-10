@@ -21,12 +21,15 @@ pub fn build(b: *std.Build) void {
     exe.addCSourceFiles(.{
         .files = &[_][]const u8{
             "src/main.c",
+            "src/device_wifi_interface_pi.c",
+            "src/benchmark.c"
         },
         .flags = &[_][]const u8{
             "-std=c11",
         },
     });
     
+    exe.addIncludePath(.{ .path = "include" });
     exe.linkLibrary(raylib_dep.artifact("raylib"));
 
     b.installArtifact(exe);
