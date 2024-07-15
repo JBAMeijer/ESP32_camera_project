@@ -22,7 +22,9 @@ pub fn build(b: *std.Build) void {
         .files = &[_][]const u8{
             "src/main.c",
             "src/device_wifi_interface_pi.c",
-            "src/benchmark.c"
+            "src/benchmark.c",
+            "src/cam.c",
+            "src/mem_manager.c"
         },
         .flags = &[_][]const u8{
             "-std=c11",
@@ -31,6 +33,20 @@ pub fn build(b: *std.Build) void {
     
     exe.addIncludePath(.{ .path = "include" });
     exe.linkLibrary(raylib_dep.artifact("raylib"));
+
+    exe.addIncludePath(.{ .path = "../Operators" });
+    exe.addCSourceFiles(.{
+        .files = &[_][]const u8{
+            "../Operators/operators.c",
+            "../Operators/operators_basic.c",
+            "../Operators/operators_rgb565.c",
+            "../Operators/operators_rgb888.c",
+        },
+        .flags = &[_][]const u8{
+            "-std=c11",
+        },
+    });
+    //exe.defineCMacro("USE_MEM_MANAGER", "");
 
     b.installArtifact(exe);
     

@@ -26,6 +26,7 @@ typedef enum
 
 void pc_wifi_interface_rx();
 void pc_wifi_interface_process_rx_complete(void);
+void pc_wifi_interface_write(eFrameType, uint8_t*, uint32_t);
 
 static bool _connected = false;
 static struct pollfd pfds[2];
@@ -270,8 +271,8 @@ void pc_wifi_interface_write(eFrameType type, uint8_t* buffer, uint32_t len) {
 
 void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
 {
-    printf("Device wants to send benchmark\n");
-    printf("pc_is_ready byte: %d\n", pc_is_ready);
+    //printf("Device wants to send benchmark\n");
+    //printf("pc_is_ready byte: %d\n", pc_is_ready);
     while(!(pc_is_ready & PC_IS_READY_FOR_BENCHMARK) && _connected)
     {
         pc_wifi_interface_process_rx_complete();
@@ -284,6 +285,6 @@ void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
     pc_is_ready = 0;
 
     pc_wifi_interface_write(BENCHMARK_ACK, (uint8_t*)benchmark, sizeof(benchmark_t));
-    printf("Benchmark send\n");
+    //printf("Benchmark send\n");
 }
 

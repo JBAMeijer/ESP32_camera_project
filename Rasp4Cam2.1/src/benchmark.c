@@ -37,12 +37,12 @@ void benchmark_stop(benchmark_t* b) {
 size_t benchmark_tostr(benchmark_t* b, u8* str) {
     u8 tmp[16];
 
-    strcpy(str, "Benchmark: ");
+    strcpy(str, "Benchmark: "); 
     strcat(str, b->name);
     strcat(str, " ");
     sprintf(tmp, "%d", b->stop - b->start);
     strcat(str, tmp);
-    strcat(str, " us\r\n");
+    strcat(str, " us");
 
     return strlen(str);
 }
@@ -55,7 +55,7 @@ size_t benchmark_tostr_ms(benchmark_t* b, u8* str) {
     strcat(str, " ");
     sprintf(tmp, "%d", (b->stop - b->start) / 1000);
     strcat(str, tmp);
-    strcat(str, " ms\r\n");
+    strcat(str, " ms");
 
     return strlen(str);
 }
