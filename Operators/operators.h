@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#if !defined(BUILD_FROM_GUI)
+#if defined(ESP32_S3)
     #include <esp_camera.h>
     #include "config.h"
 
@@ -24,9 +24,8 @@ typedef enum
     IMGTYPE_BASIC  = 0,  // Unsigned Character
     IMGTYPE_INT16  = 1,  // Integer
     IMGTYPE_FLOAT  = 2,  // Float
-    IMGTYPE_RGB888 = 3,  // RGB 8-bit per pixel
-    IMGTYPE_RGB565 = 4,
-    IMGTYPE_JPEG   = 5,
+    IMGTYPE_RGB888 = 3,  // RGB 24 bpp
+    IMGTYPE_RGB565 = 4,  // RGB 16 bpp
   
     IMGTYPE_MAX    = 2147483647 // Max 32-bit int value,
                                 // forces enum to be 4 bytes
@@ -73,14 +72,18 @@ typedef struct
     int32_t     len;
     eImageView  view;
     eImageType  type;
-    uint8_t    *data;
+    uint8_t*    data;
     
 }image_t;
 
 // Creates a zero initialized image with the specified cols and rows
-image_t *newRGB565Image( const uint32_t cols, const uint32_t rows );
+image_t* newBasicImage(const uint32_t cols, const uint32_t rows);
+image_t* newRGB565Image(const uint32_t cols, const uint32_t rows);
+image_t* newRGB888Image(const uint32_t cols, const uint32_t rows); 
 
-image_t *newJPEGImageFromData(const uint8_t* data, const uint32_t cols, const uint32_t rows, const uint32_t len);
+image_t* newJPEGImageFromData(const uint8_t* data, const uint32_t cols, const uint32_t rows, const uint32_t len);
+
+void convert_to_basic_image(const image_t* src, image_t* dst);
 
 void deleteJPEGImage(image_t* img);
 

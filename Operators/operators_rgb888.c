@@ -1,5 +1,5 @@
 #if !defined(ESP32_S3)
-#include "operators.h"
+#include "operators_rgb888.h"
 #include <stdlib.h> 
 #else
     #include <Arduino.h>
@@ -8,11 +8,11 @@
 #endif
 
 #if defined(USE_MEM_MANAGER)
-    #include "mem_manager.h"
+	#include "mem_manager.h"
 #endif
 
-image_t* newRGB565Image(const uint32_t cols, const uint32_t rows) {
-    image_t* img = (image_t*)malloc(sizeof(image_t));
+image_t *newRGB888Image(const uint32_t cols, const uint32_t rows) {
+    image_t *img = (image_t*)malloc(sizeof(image_t));
     if(img == NULL) {
         return NULL;
     }
@@ -20,7 +20,7 @@ image_t* newRGB565Image(const uint32_t cols, const uint32_t rows) {
 #if defined(USE_MEM_MANAGER)
     img->data = mem_manager_alloc();
 #else
-    img->data = (uint8_t*)malloc((rows * cols) * sizeof(rgb565_pixel_t));
+    img->data = (uint8_t*)malloc((rows * cols) * sizeof(rgb888_pixel_t));
 #endif
 
     if(img->data == NULL) {
@@ -31,6 +31,6 @@ image_t* newRGB565Image(const uint32_t cols, const uint32_t rows) {
     img->cols = cols;
     img->rows = rows;
     img->view = IMGVIEW_CLIP;
-    img->type = IMGTYPE_RGB565;
+    img->type = IMGTYPE_RGB888;
     return(img);
 }

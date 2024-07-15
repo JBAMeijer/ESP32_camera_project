@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-#if defined(BUILD_FROM_GUI)
+#if !defined(ESP32_S3)
 #include "operators.h"
 #else
 #include "operators/operators.h"
