@@ -30,25 +30,22 @@ void pc_wifi_interface_write(eFrameType, uint8_t*, uint32_t);
 
 static bool _connected = false;
 static struct pollfd pfds[2];
-static int sockfd, connfd, len, new_socket;
-static int status;
-static struct sockaddr_in servaddr, cli;
-static int opt = 1;
+static s32 sockfd, new_socket;
+static struct sockaddr_in servaddr;
 static socklen_t addrlen = sizeof(servaddr);
 
-static uint32_t rx_cnt;
+static u32 rx_cnt;
 static rx_state_t rx_state;
-static eFrameType frame_type;
-static uint32_t rx_expected_len;
+static u32 rx_expected_len;
 static bool rx_complete;
-static uint8_t rx_buffer[2048] = {0};
+static u8 rx_buffer[2048] = {0};
 
 #define PC_IS_READY_FOR_IMG_TITLE  (0x00000001)
 #define PC_IS_READY_FOR_IMG_STRUCT (0x00000002)
 #define PC_IS_READY_FOR_IMG_DATA   (0x00000004)
 #define PC_IS_READY_FOR_BENCHMARK  (0x00000008)
 
-static uint32_t pc_is_ready = 0;
+static u32 pc_is_ready = 0;
 
 int pc_wifi_interface_start() {
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -142,7 +139,7 @@ void pc_wifi_interface_rx() {
         
         if(pfds[1].revents & POLLIN) {
 			if(_connected) {
-				uint32_t amount_of_bytes = read(new_socket, rx_buffer, 2048);
+				u32 amount_of_bytes = read(new_socket, rx_buffer, 2048);
 				if(amount_of_bytes == 0) close_client_socket();
 				else {
 					rx_cnt += amount_of_bytes;
@@ -151,10 +148,10 @@ void pc_wifi_interface_rx() {
 						rx_expected_len = 0;
 
 						// retrieve data
-						rx_expected_len |= (uint32_t)rx_buffer[1];
-						rx_expected_len |= (uint32_t)rx_buffer[2] << 8;
-						rx_expected_len |= (uint32_t)rx_buffer[3] << 16;
-						rx_expected_len |= (uint32_t)rx_buffer[4] << 24;
+						rx_expected_len |= (u32)rx_buffer[1];
+						rx_expected_len |= (u32)rx_buffer[2] << 8;
+						rx_expected_len |= (u32)rx_buffer[3] << 16;
+						rx_expected_len |= (u32)rx_buffer[4] << 24;
 
 						if(rx_expected_len == 0) {
 							// All data is here
@@ -249,9 +246,9 @@ void pc_wifi_interface_update() {
     if(rx_complete) pc_wifi_interface_process_rx_complete();
 }
 
-void pc_wifi_interface_write(eFrameType type, uint8_t* buffer, uint32_t len) {
-    uint8_t tmp[5];
-    uint8_t *d = (uint8_t *)(&len);
+void pc_wifi_interface_write(eFrameType type, u8 *buffer, u32 len) {
+    u8 tmp[5];
+    u8 *d = (u8 *)(&len);
 
     //Set header
     tmp[0] = type;
@@ -260,7 +257,7 @@ void pc_wifi_interface_write(eFrameType type, uint8_t* buffer, uint32_t len) {
     tmp[3] = *d++;
     tmp[4] = *d++;
 
-	uint32_t bytes_send = send(new_socket, tmp, 5, 0);
+	u32 bytes_send = send(new_socket, tmp, 5, 0);
     if(bytes_send != 5)
         return;
 
@@ -269,7 +266,7 @@ void pc_wifi_interface_write(eFrameType type, uint8_t* buffer, uint32_t len) {
     }
 }
 
-void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
+void pc_wifi_interface_send_benchmark(benchmark_t *benchmark)
 {
     //printf("Device wants to send benchmark\n");
     //printf("pc_is_ready byte: %d\n", pc_is_ready);
@@ -284,7 +281,7 @@ void pc_wifi_interface_send_benchmark(benchmark_t* benchmark)
 
     pc_is_ready = 0;
 
-    pc_wifi_interface_write(BENCHMARK_ACK, (uint8_t*)benchmark, sizeof(benchmark_t));
+    pc_wifi_interface_write(BENCHMARK_ACK, (u8*)benchmark, sizeof(benchmark_t));
     //printf("Benchmark send\n");
 }
 

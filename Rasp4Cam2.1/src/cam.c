@@ -1,4 +1,5 @@
 #include "cam.h"
+#include "vision.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -14,19 +15,19 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
-int fd;
+s32 fd;
 
-int width;
-int height;
-int bpp;
-int len;
+s32 width;
+s32 height;
+s32 bpp;
+s32 len;
 
 struct v4l2_requestbuffers bufrequest;
 struct v4l2_buffer bufferinfo;
-int type;
-void* buffer_start = NULL;
+s32 type;
+void *buffer_start = NULL;
 
-int start_cam(int width, int height) {
+s32 start_cam() {
 
     if((fd = open("/dev/video0", O_RDWR)) < 0) {
 		perror("open");
@@ -47,13 +48,19 @@ int start_cam(int width, int height) {
     struct v4l2_format format;
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
-    format.fmt.pix.width = width;
-    format.fmt.pix.height = height;
+    format.fmt.pix.width = IMAGE_WIDTH;
+    format.fmt.pix.height = IMAGE_HEIGHT;
     
     if(ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
 		perror("VIDIOC_S_FMT");
 		return(-1);
     }
+    
+    if(format.fmt.pix.width != IMAGE_WIDTH || 
+		format.fmt.pix.height != IMAGE_HEIGHT) {
+		fprintf(stderr, "Failed to set the desired width or height!\n");
+		return(-1);
+	}
     
     width = format.fmt.pix.width;
     height = format.fmt.pix.height;
@@ -121,37 +128,6 @@ int start_cam(int width, int height) {
     }
     
     printf("control.value rotate after: %d\n", control.value);
-    
-    /*struct v4l2_frmivalenum frameinterval;
-    frameinterval.pixel_format = V4L2_PIX_FMT_RGB24;
-    frameinterval.width = 1920;
-    frameinterval.height = 1080;
-    frameinterval.index = 0;
-    if(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frameinterval) < 0) {
-	perror("VIDIOC_G_PARM");
-	return(-1);
-    }
-    
-    printf("Frame interval: %d\n", frameinterval.type);
-    printf("Frame min n: %d\n", frameinterval.stepwise.min.numerator);
-    printf("Frame min d: %d\n", frameinterval.stepwise.min.denominator);
-    printf("Frame max n: %d\n", frameinterval.stepwise.max.numerator);
-    printf("Frame max d: %d\n", frameinterval.stepwise.max.denominator);
-    printf("Frame step: %d\n", frameinterval.stepwise.step.numerator);
-    printf("Frame step: %d\n", frameinterval.stepwise.step.denominator);
-    
-    struct v4l2_fract fract;
-    fract.numerator = 1;
-    fract.denominator = 7;
-    streamparm.parm.capture.timeperframe = fract;
-    if(ioctl(fd, VIDIOC_S_PARM, &streamparm) < 0) {
-	perror("VIDIOC_S_PARM");
-	return(-1);
-    }
-    
-    printf("time per frame numerator: %d\n", streamparm.parm.capture.timeperframe.numerator);
-    printf("time per frame denominator: %d\n", streamparm.parm.capture.timeperframe.denominator);
-*/
 
     bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufrequest.memory = V4L2_MEMORY_MMAP;
@@ -198,16 +174,16 @@ int start_cam(int width, int height) {
     return 0;
 }
 
-int poll_cam(image_t* image) {
-	for(int i = 0; i < bufrequest.count; i++) {
+s32 poll_cam(image_t *image) {
+	for(s32 i = 0; i < bufrequest.count; i++) {
 	    if(ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
 			perror("VIDIOC_QBUF");
 			return (-1);
 	    }
 	    
-	    int i = image->cols * image->rows;
-	    register rgb888_pixel_t* s = (rgb888_pixel_t*)buffer_start;
-		register rgb888_pixel_t* d = (rgb888_pixel_t*)image->data;
+	    s32 i = image->cols * image->rows;
+	    register rgb888_pixel_t *s = (rgb888_pixel_t*)buffer_start;
+		register rgb888_pixel_t *d = (rgb888_pixel_t*)image->data;
 	    
 	    while(i--)
 			*d++ = *s++;
@@ -221,7 +197,7 @@ int poll_cam(image_t* image) {
 	return 0;
 }
 
-int close_cam() {
+s32 close_cam() {
 	if(ioctl(fd, VIDIOC_STREAMOFF, &type) < 0 ){
 		perror("VIDIOC_STREAMOFF");
 		return(-1);

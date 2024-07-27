@@ -34,11 +34,11 @@ typedef enum
     MODE_STOP,
 }eDeviceMode;
 
-int pc_wifi_interface_start();
+s32 pc_wifi_interface_start();
 void pc_wifi_interface_stop();
 void pc_wifi_interface_reset();
 void pc_wifi_interface_update();
-void pc_wifi_interface_send_benchmark(benchmark_t* benchmark);
+void pc_wifi_interface_send_benchmark(benchmark_t *benchmark);
 //void pc_wifi_interface_send_img(image_t* img, const char* title);
 
 #endif /* PC_INTERFACE_H_ */

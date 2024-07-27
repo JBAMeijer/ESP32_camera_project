@@ -6,6 +6,11 @@
 #define _OPERATORS_H_
 
 #include "stdint.h"
+#include "general.h"
+
+#if defined(RASP4)
+    #define USE_MEM_MANAGER
+#endif
 
 #if defined(ESP32_S3)
     #include <esp_camera.h>
@@ -31,6 +36,14 @@ typedef enum
                                 // forces enum to be 4 bytes
 }eImageType;
 
+static const s8* const IMGTYPE_NAMES[] = {
+    "IMGTYPE_BASIC",
+    "IMGTYPE_INT16",
+    "IMGTYPE_FLOAT",
+    "IMGTYPE_RGB888",
+    "IMGTYPE_RGB565",
+};
+
 typedef enum
 {
     IMGVIEW_STRETCH = 0,
@@ -42,50 +55,59 @@ typedef enum
                                  // forces enum to be 4 bytes
 }eImageView;
 
+static const s8* const IMGVIEW_NAMES[] = {
+    "IMGVIEW_STRETCH",
+    "IMGVIEW_CLIP",
+    "IMGVIEW_BINARY",
+    "IMGVIEW_LABELED",
+};
+
 // Pixel types
-typedef uint8_t basic_pixel_t;
-typedef int16_t int16_pixel_t;
-typedef float float_pixel_t;
+typedef u8  basic_pixel_t;
+typedef s16 int16_pixel_t;
+typedef f32 float_pixel_t;
 
 typedef struct rgb888_pixel_t
 {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
+    u8 r;
+    u8 g;
+    u8 b;
     
 }rgb888_pixel_t;
 
-typedef uint16_t rgb565_pixel_t;
+typedef u16 rgb565_pixel_t;
 
 typedef struct complex_pixel_t
 {
-    float real;
-    float imaginary;
+    f32 real;
+    f32 imaginary;
     
 }complex_pixel_t;
 
 // Image type
 typedef struct
 {
-    int32_t     cols;
-    int32_t     rows;
-    int32_t     len;
+    s32         cols;
+    s32         rows;
+    s32         len;
     eImageView  view;
     eImageType  type;
-    uint8_t*    data;
+    u8          *data;
     
 }image_t;
 
 // Creates a zero initialized image with the specified cols and rows
-image_t* newBasicImage(const uint32_t cols, const uint32_t rows);
-image_t* newRGB565Image(const uint32_t cols, const uint32_t rows);
-image_t* newRGB888Image(const uint32_t cols, const uint32_t rows); 
+image_t *newBasicImage(const u32 cols, const u32 rows);
+image_t *newRGB565Image(const u32 cols, const u32 rows);
+image_t *newRGB888Image(const u32 cols, const u32 rows); 
 
-image_t* newJPEGImageFromData(const uint8_t* data, const uint32_t cols, const uint32_t rows, const uint32_t len);
+void delete_image(image_t *img);
 
-void convert_to_basic_image(const image_t* src, image_t* dst);
+void convert_image(const image_t *src, image_t *dst);
 
-void deleteJPEGImage(image_t* img);
+void copy(const image_t *src, image_t *dst);
+
+void threshold(const image_t *src, image_t *dst, u8 threshold_value);
 
 #endif // _OPERATORS_H_
 

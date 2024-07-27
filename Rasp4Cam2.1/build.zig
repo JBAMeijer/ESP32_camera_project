@@ -1,6 +1,18 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
+    const n_data_blocks_required = b.option(u32, "n_data_blocks_required", "Set the required amount of data blocks that will be used by the mem manager") orelse 20;
+    //const n_data_blocks_for_viewer = b.option(u32, "n_data_blocks_for_viewer", "Set the required amount of data blocks used by the viewer") orelse 10;
+    //const n_data_blocks_for_queue = b.option(u32, "n_data_blocks_for_queue", "Set the required amount of data blocks used by the queue") orelse 10;
+    //const n_data_blocks_for_processing = b.option(u32, "n_data_blocks_for_processing", "Set the required amount of data blocks used for vision processing") orelse 10;
+    
+    //const n_data_blocks_required = 50;
+    
+    //if(n_data_blocks_for_viewer > n_data_blocks_required) {
+    //    std.debug.print("ERROR: viewer data blocks can't be more then the required amount!'", .{});
+    //    return error.VIEWER_BLOCKS_EXCEEDED;
+    //}
+    
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -18,21 +30,27 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibC();
     
+    exe.defineCMacro("RASP4", "");
+    
     exe.addCSourceFiles(.{
         .files = &[_][]const u8{
             "src/main.c",
             "src/device_wifi_interface_pi.c",
             "src/benchmark.c",
             "src/cam.c",
-            "src/mem_manager.c"
+            "src/mem_manager.c",
+            //"src/vision.c",
         },
         .flags = &[_][]const u8{
             "-std=c11",
+            "-Wall",
+            "-Werror",
         },
     });
     
     exe.addIncludePath(.{ .path = "include" });
     exe.linkLibrary(raylib_dep.artifact("raylib"));
+    exe.linkSystemLibrary("pigpio");
 
     exe.addIncludePath(.{ .path = "../Operators" });
     exe.addCSourceFiles(.{
@@ -46,7 +64,19 @@ pub fn build(b: *std.Build) void {
             "-std=c11",
         },
     });
-    //exe.defineCMacro("USE_MEM_MANAGER", "");
+    
+    exe.defineCMacro("IMAGE_RES_VGA", "");
+
+    var buf: [10]u8 = undefined;
+    const str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_required});
+    exe.defineCMacro("N_REQUIRED_DATA_BLOCKS", str);
+    
+    //str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_for_viewer});
+    //exe.defineCMacro("N_REQUIRED_DATA_BLOCKS_VIEWER", str);
+    
+    //str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_for_queue});
+    //exe.defineCMacro("N_REQUIRED_DATA_BLOCKS_QUEUE", str);
+    //exe.defineCMacro("IMAGE_RES_VGA", "");
 
     b.installArtifact(exe);
     

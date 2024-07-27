@@ -1,75 +1,59 @@
 #include "mem_manager.h"
+#include "vision.h"
 #include <sys/resource.h>
 #include <stdio.h>
-
-#define BLOCK_SIZE (640 * 480 * 3)
-
-#define STACK_SIZE (8 * 1024 * 1024) // 8MB
-
-#define N_DATA_BLOCKS (STACK_SIZE / BLOCK_SIZE)
+#include <stdlib.h>
 
 typedef enum {
 	FREE = 0,
 	TAKEN = 1,
 }eBlockStatus;
 
-uint8_t data_blocks[N_DATA_BLOCKS][BLOCK_SIZE];
-
-eBlockStatus block_status[N_DATA_BLOCKS];
+image_t images[N_REQUIRED_DATA_BLOCKS];
+u8 *data_blocks[N_REQUIRED_DATA_BLOCKS];
+eBlockStatus block_status[N_REQUIRED_DATA_BLOCKS];
 
 int mem_manager_init(void) {
 	printf("BLOCK_SIZE: %d\n", BLOCK_SIZE);
-	printf("MEMORY_SIZE: %d\n", STACK_SIZE);
-	printf("N_DATA_BLOCKS: %d\n", N_DATA_BLOCKS);
-	struct rlimit rl;
-    int result;
-    
-    if(getrlimit(RLIMIT_STACK, &rl) == 0) {
-		printf("Stack size: %d\n", rl.rlim_cur);
-		if(rl.rlim_cur < STACK_SIZE * 2) {
-			rl.rlim_cur = STACK_SIZE * 2;
-			if(setrlimit(RLIMIT_STACK, &rl) != 0) {
-				printf("Failed to set the required stack size\n");
-				return (-1);
-			} else {
-				printf("Stack size set to: %d\n", rl.rlim_cur);
-			}
-		}
-    }
+	printf("N_DATA_BLOCKS: %d\n", N_REQUIRED_DATA_BLOCKS);
+	printf("TOTAL_MEMORY_SIZE: %d\n", BLOCK_SIZE*N_REQUIRED_DATA_BLOCKS);
 	
-	for(int i = 0; i < N_DATA_BLOCKS; i++) {
+	for(s32 i = 0; i < N_REQUIRED_DATA_BLOCKS; i++) {
+		data_blocks[i] = (u8*)malloc(BLOCK_SIZE);
+		images[i].data = data_blocks[i];
 		block_status[i] = FREE;
 	}
 	
 	return (0);
 }
 
-uint8_t* mem_manager_alloc(void) {
-	uint8_t* ret = NULL;
+image_t *mem_manager_alloc(void) {
+	image_t *ret = NULL;
 	
-	int i=0;
-	while((block_status[i] == TAKEN) && (i < N_DATA_BLOCKS)) i++;
+	s32 i=0;
+	while((block_status[i] == TAKEN) && (i < N_REQUIRED_DATA_BLOCKS)) i++;
 		
-	if(i < N_DATA_BLOCKS) {
+	if(i < N_REQUIRED_DATA_BLOCKS) {
 		block_status[i] = TAKEN;
-		ret = data_blocks[i];
+		ret = &images[i];
+		//ret = data_blocks[i];
 		printf("Memory block %d status set to TAKEN\n", i);
 	}
 	
 	return ret;
 }
 
-void mem_manager_free(uint8_t* data) {
-	int i = 0;
-	while((data_blocks[i] != data) && (i < N_DATA_BLOCKS)) i++;
+void mem_manager_free(image_t *data) {
+	s32 i = 0;
+	while((&images[i] != data) && (i < N_REQUIRED_DATA_BLOCKS)) i++;
 	
-	if(i < N_DATA_BLOCKS) block_status[i] = FREE;
+	if(i < N_REQUIRED_DATA_BLOCKS) block_status[i] = FREE;
 }
 
-uint8_t mem_manager_free_blocks(void) {
-	int n=0;
+u8 mem_manager_free_blocks(void) {
+	u8 n=0;
 	
-	for(int i = 0; i < N_DATA_BLOCKS; i++)
+	for(s32 i = 0; i < N_REQUIRED_DATA_BLOCKS; i++)
 	{
 		if(block_status[i] == FREE) n++;
 	}

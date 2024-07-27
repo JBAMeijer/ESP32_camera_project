@@ -3,8 +3,8 @@
 
 #include "operators.h"
 
-int start_cam(int, int);
-int poll_cam(image_t*);
-int close_cam();
+s32 start_cam();
+s32 poll_cam(image_t*);
+s32 close_cam();
 
 #endif // CAM_H_
