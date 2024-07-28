@@ -109,6 +109,8 @@ void copy(const image_t *src, image_t *dst);
 
 void threshold(const image_t *src, image_t *dst, u8 threshold_value);
 
+void contrast_stretch_fast(const image_t *src, image_t *dst);
+
 #endif // _OPERATORS_H_
 
 #ifdef __cplusplus

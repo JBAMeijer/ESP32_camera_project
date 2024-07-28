@@ -113,3 +113,48 @@ void threshold_basic(const image_t *src, image_t *dst, u8 threshold_value) {
 	dst->view = IMGVIEW_BINARY;
 	
 }
+
+void contrast_stretch_fast_basic(const image_t *src, image_t *dst) {
+	basic_pixel_t LUT[256];
+	register basic_pixel_t lpixel = 255, hpixel = 0;
+	register u32 *pixelsrc = (u32 *)src->data;
+	
+	s32 i = (dst->cols * dst->rows) / 4;
+	while(i-- > 0) {
+		if(((*pixelsrc & 0xff000000UL) >> 24) < lpixel) lpixel = ((*pixelsrc & 0xff000000UL) >> 24);
+		if(((*pixelsrc & 0xff000000UL) >> 24) > hpixel) hpixel = ((*pixelsrc & 0xff000000UL) >> 24);
+		
+		if(((*pixelsrc & 0x00ff0000UL) >> 16) < lpixel) lpixel = ((*pixelsrc & 0x00ff0000UL) >> 16);
+		if(((*pixelsrc & 0x00ff0000UL) >> 16) > hpixel) hpixel = ((*pixelsrc & 0x00ff0000UL) >> 16);
+		
+		if(((*pixelsrc & 0x0000ff00UL) >> 8) < lpixel) lpixel = ((*pixelsrc & 0x0000ff00UL) >> 8);
+		if(((*pixelsrc & 0x0000ff00UL) >> 8) > hpixel) hpixel = ((*pixelsrc & 0x0000ff00UL) >> 8);
+		
+		if(((*pixelsrc & 0x000000ffUL)) < lpixel) lpixel = ((*pixelsrc & 0x000000ffUL));
+		if(((*pixelsrc & 0x000000ffUL)) > hpixel) hpixel = ((*pixelsrc & 0x000000ffUL));
+		++pixelsrc;
+	}
+	
+	pixelsrc = (u32 *)src->data;
+	register u32 *pixeldst = (u32 *)dst->data;
+	i = (dst->cols * dst->rows) / 4;
+	if(lpixel != hpixel) {
+		register const float stretchfactor = 255 / (float)(hpixel - lpixel);
+		
+		for(u32 t = 0; t <= hpixel - lpixel; t++)
+			LUT[t + lpixel] = (basic_pixel_t)((t * stretchfactor) + 0.5f);
+			
+		while(i-- > 0) {
+			*pixeldst = (LUT[((*pixelsrc & 0xff000000UL) >> 24)] << 24) |
+						(LUT[((*pixelsrc & 0x00ff0000UL) >> 16)] << 16) |
+						(LUT[((*pixelsrc & 0x0000ff00UL) >>  8)]  << 8) |
+						(LUT[((*pixelsrc & 0x000000ffUL)      )]      );
+			++pixelsrc;
+			++pixeldst;
+		}
+	} else {
+		while(i-- > 0)
+			*pixeldst = 128;
+		pixeldst++;
+	}
+}

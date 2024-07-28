@@ -100,6 +100,28 @@ void threshold(const image_t *src, image_t *dst, u8 threshold_value) {
 
 }
 
+void contrast_stretch_fast(const image_t *src, image_t *dst) {
+    assert(src->type == dst->type && "contrast_stretch_fast(): src and dst are of different types!");
+    
+    switch(src->type) 
+    {
+        case IMGTYPE_BASIC:
+            contrast_stretch_fast_basic(src, dst);
+            break;
+        case IMGTYPE_INT16:
+        case IMGTYPE_FLOAT:
+        case IMGTYPE_RGB565:
+        case IMGTYPE_RGB888:
+            assert(false && "contrast_stretch_fast(): image type FLOAT, INT16, RGB565 and RGB888 not supported!");
+            break;
+        default: 
+            assert(false && "contrast_stretch_fast(): unknown image type!");
+            break;
+    }
+
+}
+
+
 #ifdef __cplusplus
 }
 #endif

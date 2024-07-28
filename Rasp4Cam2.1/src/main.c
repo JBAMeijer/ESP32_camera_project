@@ -18,6 +18,7 @@
 #include "mem_manager.h"
 
 #include "raylib.h"
+#include "raygui.h"
 #include "pc_interface.h"
 #include "benchmark.h"
 #include "operators.h"
@@ -31,15 +32,23 @@ PixelFormat get_pixel_format(image_t *image);
 void upload_to_image_viewer(image_t *image, const s8 *name);
 void set_viewer(void);
 void draw_viewerboxes_and_view(void);
+
 void draw_image_info(void);
+void draw_processing_controls_window(void);
+void draw_acquisition_controls_window(void);
 
 void draw_info_control_window(void);
 void upload_to_benchmark_viewer(benchmark_t *benchmark);
 void draw_benchmarks(void);
+
 void init_benchmark_viewer_data(void);
+void init_processing_control_data(void);
+
 void *change_internal_data_representation(image_t *image);
 
 void send_processing_time_total(double time);
+
+void slider_bar(const s8* name, f32* value, s32 bottom, s32 top);
 
 //~ void copy_queue(void);
 
@@ -57,10 +66,30 @@ typedef struct {
 } benchmarkViewerData;
 
 typedef enum {
+    CONTROL_SLIDERBAR,
+} eControlType;
+
+typedef struct {
+    f32 val;
+    u32 top;
+    u32 bottom;
+} sliderbarData;
+
+typedef union {
+    sliderbarData sliderbar_data;
+} uControlData;
+
+typedef struct {
+    eControlType type;
+    uControlData control_data;
+    s8 name[30];
+} processingControlData;
+
+typedef enum {
     SIDE_WINDOW_IMAGE_INFO,
     SIDE_WINDOW_PROCESSING_CONTROLS,
     SIDE_WINDOW_ACQUISITION_CONTROLS,
-}eImageInfoControlWindow;
+} eImageInfoControlWindow;
 
 static const s32 width = 1280;
 static const s32 height = 800;
@@ -74,6 +103,8 @@ static Texture texture;
 static eImageInfoControlWindow view_window = SIDE_WINDOW_IMAGE_INFO;
 
 static benchmarkViewerData benchmark_list[10] = {0};
+
+static processingControlData processing_controls_data[10] = {0};
 
 static image_t *image_viewer_images[N_REQUIRED_DATA_BLOCKS];
 static s8 image_viewer_image_names[N_REQUIRED_DATA_BLOCKS][30];
@@ -111,6 +142,7 @@ static const Rectangle rec_acquisition_controls = (Rectangle){ rec_processing_co
 // ----------------------------------------------------------------------------
 static image_t *cam_image;
 static image_t *image_grey;
+static image_t *contrast_stretch_image;
 static image_t *threshold_image;
 
 s32 main(void) {
@@ -138,8 +170,8 @@ s32 main(void) {
     SetTraceLogLevel(LOG_ERROR | LOG_WARNING | LOG_FATAL);
     
     init_benchmark_viewer_data();
+    init_processing_control_data();
     
-    //image_info_text_len = MeasureText("IMAGE INFO", 30);
     while (!WindowShouldClose())
     {
 	vision_main();
@@ -203,6 +235,7 @@ s32 main(void) {
 s32 vision_setup(void) {
     cam_image = newRGB888Image(IMAGE_WIDTH, IMAGE_HEIGHT);
     image_grey = newBasicImage(IMAGE_WIDTH, IMAGE_HEIGHT);
+    contrast_stretch_image = newBasicImage(IMAGE_WIDTH, IMAGE_HEIGHT);
     threshold_image = newBasicImage(IMAGE_WIDTH, IMAGE_HEIGHT);
     
     if(threshold_image == NULL)
@@ -233,18 +266,34 @@ void vision_main(void) {
 	
     upload_to_image_viewer(image_grey, "RGB888 to Basic conversion");
     upload_to_benchmark_viewer(&benchmark);
-	
-    benchmark_start(&benchmark, "Threshold");
-    threshold(image_grey, threshold_image, 128);
+    
+    benchmark_start(&benchmark, "Contrast stretch fast");
+    contrast_stretch_fast(image_grey, contrast_stretch_image);
     benchmark_stop(&benchmark);
 	
-    upload_to_image_viewer(threshold_image, "Threshold_180");
+    upload_to_image_viewer(contrast_stretch_image, "Contrast stretch fast");
+    upload_to_benchmark_viewer(&benchmark);
+    
+    static f32 threshold_value = 128;
+    slider_bar("Threshold", &threshold_value, 0, 255);
+    
+    benchmark_start(&benchmark, "Threshold");
+    threshold(contrast_stretch_image, threshold_image, (u8)threshold_value);
+    benchmark_stop(&benchmark);
+	
+    upload_to_image_viewer(threshold_image, "Threshold");
     upload_to_benchmark_viewer(&benchmark);
     
     end = clock();
     total = (double)(end - start)/CLOCKS_PER_SEC;
 	
     send_processing_time_total(total);
+}
+
+void init_processing_control_data(void) {
+    for(u32 i = 0; i < 10; i++) {
+	processing_controls_data[i].name[29] = '\0';
+    }
 }
 
 void init_benchmark_viewer_data(void) {
@@ -317,15 +366,9 @@ void draw_viewerboxes_and_view(void) {
 
 }
 
+
 void draw_info_control_window(void) {
     Vector2 mouse_pos = GetMousePosition();
-    //~ DrawRectangleLinesEx(rec_image_info, 1, WHITE);
-    //~ DrawRectangleLinesEx(rec_processing_controls, 1, WHITE);
-    //~ DrawRectangleLinesEx(rec_acquisition_controls, 1, WHITE);
-    
-    //~ DrawText("IMAGE INFO", rec_image_info.x + 3, 300, 30, LIGHTGRAY);
-    //~ DrawText("PRO CNTRLS", rec_processing_controls.x + 3, 300, 30, LIGHTGRAY);
-    //~ DrawText("AQ CNTRLS", rec_acquisition_controls.x + 3, 300, 30, LIGHTGRAY);
     
     if(view_window == SIDE_WINDOW_IMAGE_INFO) {
     	DrawRectangleLinesEx(rec_image_info, 1, BLUE);
@@ -370,6 +413,7 @@ void draw_info_control_window(void) {
 	    draw_image_info();
 	    break;
 	case SIDE_WINDOW_PROCESSING_CONTROLS:
+	    draw_processing_controls_window();
 	    break;
 	case SIDE_WINDOW_ACQUISITION_CONTROLS:
 	    break;
@@ -398,6 +442,24 @@ void draw_image_info(void) {
     }
 }
 
+void draw_processing_controls_window(void) {
+    s32 position = 330;
+    for(u32 i = 0; i < 10; i++) {
+	if(processing_controls_data[i].name[0] != '\0') {
+	    if(processing_controls_data[i].type == CONTROL_SLIDERBAR) {
+		DrawText(processing_controls_data[i].name, width/2 + 3, position, 20, LIGHTGRAY);
+		GuiSlider((Rectangle){width - 252, position, 150, 20}, NULL, NULL, 
+		    &processing_controls_data[i].control_data.sliderbar_data.val, 
+		    processing_controls_data[i].control_data.sliderbar_data.bottom, 
+		    processing_controls_data[i].control_data.sliderbar_data.top
+		);
+		DrawText(TextFormat("%0.0f", processing_controls_data[i].control_data.sliderbar_data.val), width - 70, position, 20, LIGHTGRAY);
+		position += 20;
+	    }
+	}
+    }
+}
+
 void send_processing_time_total(double time) {
     processing_time = time;
 }
@@ -413,6 +475,36 @@ void draw_benchmarks(void) {
     
     benchmarks_count=0;
 }
+
+void slider_bar(const s8* name, f32* value, s32 bottom, s32 top) {
+    bool found = false;
+    for(u32 i = 0; i < 10; i++) {
+	if(strncmp(processing_controls_data[i].name, name, 30) == 0) {
+	    s32 tmp = *value;
+	    *value = processing_controls_data[i].control_data.sliderbar_data.val;
+	    processing_controls_data[i].control_data.sliderbar_data.val = tmp;
+	    processing_controls_data[i].control_data.sliderbar_data.top = top;
+	    processing_controls_data[i].control_data.sliderbar_data.bottom = bottom;
+	    found = true;
+	    break;
+	}
+    }
+    
+    if(!found) {
+	for(u32 i = 0; i < 10; i++) {
+	    if(processing_controls_data[i].name[0] == '\0') {
+		strncpy(processing_controls_data[i].name, name, 30);
+		image_viewer_image_names[i][29] = '\0';
+		processing_controls_data[i].type = CONTROL_SLIDERBAR;
+		processing_controls_data[i].control_data.sliderbar_data.val = *value;
+		processing_controls_data[i].control_data.sliderbar_data.top = top;
+		processing_controls_data[i].control_data.sliderbar_data.bottom = bottom;
+		break;
+	    }
+	}
+    }
+}
+
 
 void upload_to_image_viewer(image_t *image, const s8 *name) {
     for(u32 i = 0; i < N_REQUIRED_DATA_BLOCKS; i++) {

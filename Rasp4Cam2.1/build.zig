@@ -50,6 +50,14 @@ pub fn build(b: *std.Build) !void {
     
     exe.addIncludePath(.{ .path = "include" });
     exe.linkLibrary(raylib_dep.artifact("raylib"));
+    var gen_step = b.addWriteFiles();
+    exe.step.dependOn(&gen_step.step);
+    
+    const raygui_c_path = gen_step.add("raygui.c", "#define RAYGUI_IMPLEMENTATION\n#include \"raygui.h\"\n");
+    exe.addCSourceFile(.{ .file = raygui_c_path });
+    exe.addIncludePath(.{ .path = "../submodules/raygui/src" });
+    exe.installHeader(.{ .path = "../submodules/raygui/src/raygui.h" }, "raygui.h");
+    
     exe.linkSystemLibrary("pigpio");
 
     exe.addIncludePath(.{ .path = "../Operators" });
@@ -62,6 +70,7 @@ pub fn build(b: *std.Build) !void {
         },
         .flags = &[_][]const u8{
             "-std=c11",
+            "-fno-sanitize=undefined",
         },
     });
     
