@@ -3,8 +3,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
-#include <linux/videodev2.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -26,6 +24,13 @@ struct v4l2_requestbuffers bufrequest;
 struct v4l2_buffer bufferinfo;
 s32 type;
 void *buffer_start = NULL;
+
+static cam_controls_v4l2 cam_controls;
+
+struct v4l2_queryctrl queryctrl;
+struct v4l2_querymenu querymenu;
+
+static u32 query_name_index = 0;
 
 s32 start_cam() {
 
@@ -78,7 +83,7 @@ s32 start_cam() {
 		fprintf(stderr, "The device does not handle time_per_frame.\n");
 		return(-1);
     }
-        
+    
     struct v4l2_control control;
     control.id = V4L2_CID_EXPOSURE_AUTO;
     control.value = V4L2_EXPOSURE_AUTO;
@@ -172,6 +177,85 @@ s32 start_cam() {
     }
     
     return 0;
+}
+
+void enumerate_menu(u32 id) {
+    printf("  Menu items:\n");
+
+    memset(&querymenu, 0, sizeof(querymenu));
+    querymenu.id = id;
+
+    for (querymenu.index = queryctrl.minimum;
+         querymenu.index <= queryctrl.maximum;
+         querymenu.index++) {
+		s32 result = ioctl(fd, VIDIOC_QUERYMENU, &querymenu);
+        if (result == 0) {
+			printf("  %s\n", querymenu.name);
+			//strcat()
+			memcpy(&cam_controls.queried_menu_controls[query_name_index], &querymenu, sizeof(querymenu));
+			//cam_controls.queried_menu_controls[querymenu]
+			//strncpy(cam_controls.queried_menu_control_names[query_name_index], (s8 *)querymenu.name, 32);
+            query_name_index++;
+        } else {
+			if(errno == EINVAL)
+				printf("Strange param: EINVAL index=%d\n", querymenu.index);
+		}
+        
+    }
+}
+
+cam_controls_v4l2 *query_camera_controls(void) {
+	memset(&cam_controls, 0, sizeof(cam_controls));
+	memset(&queryctrl, 0, sizeof(queryctrl));
+	   
+	struct v4l2_control control;
+	memset(&control, 0, sizeof(control));
+	
+	queryctrl.id = V4L2_CTRL_FLAG_NEXT_CTRL;
+	
+	s32 i = 0;
+	
+	while (0 == ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl)) {
+		if (!(queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)) {
+			printf("Control %s : ", queryctrl.name);
+			printf("min=%d max=%d step=%d type=%d default=%d flags=%04x ", 
+				queryctrl.minimum, queryctrl.maximum, queryctrl.step, queryctrl.type, queryctrl.default_value, queryctrl.flags);
+
+			if (queryctrl.type == V4L2_CTRL_TYPE_MENU) {
+				enumerate_menu(queryctrl.id);
+			}
+			
+			if(i < CAM_CONTROL_STORAGE_COUNT) {
+				if (queryctrl.type == V4L2_CTRL_TYPE_INTEGER || 
+					queryctrl.type == V4L2_CTRL_TYPE_BOOLEAN ||
+					queryctrl.type == V4L2_CTRL_TYPE_MENU 	 ||
+					queryctrl.type == V4L2_CTRL_TYPE_INTEGER_MENU) {
+					
+					memcpy(&cam_controls.queried_controls[i], &queryctrl, sizeof(queryctrl));
+					control.id = queryctrl.id;
+					if (0 == ioctl(fd, VIDIOC_G_CTRL, &control)) {
+						cam_controls.values[i] = control.value;
+					}
+					
+					printf("current value=%d\n", control.value);
+					
+					i++;
+				} else {
+					printf("\n");
+				}
+			}
+		}
+
+		queryctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+	}
+	if (errno != EINVAL) {
+		perror("VIDIOC_QUERYCTRL");
+		query_name_index = 0;
+		return(NULL);
+	}
+	
+	query_name_index = 0;
+	return(&cam_controls);
 }
 
 s32 poll_cam(image_t *image) {
