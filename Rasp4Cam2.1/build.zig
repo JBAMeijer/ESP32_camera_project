@@ -2,16 +2,6 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
     const n_data_blocks_required = b.option(u32, "n_data_blocks_required", "Set the required amount of data blocks that will be used by the mem manager") orelse 20;
-    //const n_data_blocks_for_viewer = b.option(u32, "n_data_blocks_for_viewer", "Set the required amount of data blocks used by the viewer") orelse 10;
-    //const n_data_blocks_for_queue = b.option(u32, "n_data_blocks_for_queue", "Set the required amount of data blocks used by the queue") orelse 10;
-    //const n_data_blocks_for_processing = b.option(u32, "n_data_blocks_for_processing", "Set the required amount of data blocks used for vision processing") orelse 10;
-    
-    //const n_data_blocks_required = 50;
-    
-    //if(n_data_blocks_for_viewer > n_data_blocks_required) {
-    //    std.debug.print("ERROR: viewer data blocks can't be more then the required amount!'", .{});
-    //    return error.VIEWER_BLOCKS_EXCEEDED;
-    //}
     
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -24,7 +14,6 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{
         .name = "zig_test",
-        //.root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -79,13 +68,6 @@ pub fn build(b: *std.Build) !void {
     var buf: [10]u8 = undefined;
     const str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_required});
     exe.defineCMacro("N_REQUIRED_DATA_BLOCKS", str);
-    
-    //str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_for_viewer});
-    //exe.defineCMacro("N_REQUIRED_DATA_BLOCKS_VIEWER", str);
-    
-    //str = try std.fmt.bufPrint(&buf, "{}", .{n_data_blocks_for_queue});
-    //exe.defineCMacro("N_REQUIRED_DATA_BLOCKS_QUEUE", str);
-    //exe.defineCMacro("IMAGE_RES_VGA", "");
 
     b.installArtifact(exe);
     

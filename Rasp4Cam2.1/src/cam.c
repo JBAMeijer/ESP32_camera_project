@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <memory.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -13,6 +15,17 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
+typedef struct {
+	void* start;
+	size_t length;
+} MMapBuf;
+
+
+static MMapBuf* mmaps = NULL;
+static s32 mmap_count = 0;
+static s32 bytes_per_line = 0;
+static s32 size_image = 0;
+
 s32 fd;
 
 s32 width;
@@ -21,7 +34,7 @@ s32 bpp;
 s32 len;
 
 struct v4l2_requestbuffers bufrequest;
-struct v4l2_buffer bufferinfo;
+//struct v4l2_buffer bufferinfo;
 s32 type;
 void *buffer_start = NULL;
 
@@ -71,7 +84,10 @@ s32 start_cam() {
     height = format.fmt.pix.height;
     bpp = 3;
     len = width * height * bpp;
-    
+
+    bytes_per_line = format.fmt.pix.bytesperline;
+    size_image = format.fmt.pix.sizeimage;
+
     struct v4l2_streamparm streamparm;
     streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if(ioctl(fd, VIDIOC_G_PARM, &streamparm) < 0) {
@@ -133,44 +149,96 @@ s32 start_cam() {
     }
     
     printf("control.value rotate after: %d\n", control.value);
-
+	
+	// request buffers
+	memset(&bufrequest, 0, sizeof(bufrequest));
     bufrequest.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufrequest.memory = V4L2_MEMORY_MMAP;
-    bufrequest.count = 1;
+    bufrequest.count = 4; // atleast 3
     
     if(ioctl(fd, VIDIOC_REQBUFS, &bufrequest) < 0){
 		perror("VIDIOC_REQBUFS");
 		return(-1);
     }
+    
+	// check if we got atleast 3
+    if (bufrequest.count < 3) {
+		fprintf(stderr, "Driver provided < 3 buffers\n");
+		return -1;
+	}
+	
+	fprintf(stdout, "Driver provided %d buffers!\n", bufrequest.count);
 
-    memset(&bufferinfo, 0, sizeof(bufferinfo));
+    mmap_count = bufrequest.count;
+    mmaps = calloc(mmap_count, sizeof(MMapBuf));
+    if(!mmaps) {
+		perror("calloc");
+		return -1;
+	}
     
-    bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    bufferinfo.memory = V4L2_MEMORY_MMAP;
-    bufferinfo.index = 0;
+    for (s32 i = 0; i < mmap_count; ++i){
+		struct v4l2_buffer b = {0};
+		b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		b.memory = V4L2_MEMORY_MMAP;
+		b.index = i;
+		
+		if(ioctl(fd, VIDIOC_QUERYBUF, &b)) {
+			perror("VIDIOC_QUERYBUF");
+			return(-1);
+		}
+		
+		mmaps[i].length = b.length;
+		mmaps[i].start = mmap(
+			NULL,
+			b.length,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED,
+			fd,
+			b.m.offset
+		);
+		
+		if(mmaps[i].start == MAP_FAILED) {
+			perror("mmap");
+			return(-1);
+		}
     
-    if(ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo) < 0) {
-		perror("VIDIOC_QUERYBUF");
-		return(-1);
-    }
+		memset(mmaps[i].start, 0, b.length);
+		
+		if(ioctl(fd, VIDIOC_QBUF, &b) < 0) {
+			perror("VIDIOC_QBUF(init)");
+			return (-1);
+	    }
+	}
     
-    buffer_start = mmap(
-		NULL,
-		bufferinfo.length,
-		PROT_READ | PROT_WRITE,
-		MAP_SHARED,
-		fd,
-		bufferinfo.m.offset
-    );
     
-    if(buffer_start == MAP_FAILED) {
-		perror("mmap");
-		return(-1);
-    }
+    //~ memset(&bufferinfo, 0, sizeof(bufferinfo));
     
-    memset(buffer_start, 0, bufferinfo.length);
+    //~ bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    //~ bufferinfo.memory = V4L2_MEMORY_MMAP;
+    //~ bufferinfo.index = 0;
     
-    type = bufferinfo.type;
+    //~ if(ioctl(fd, VIDIOC_QUERYBUF, &bufferinfo) < 0) {
+		//~ perror("VIDIOC_QUERYBUF");
+		//~ return(-1);
+    //~ }
+    
+    //~ buffer_start = mmap(
+		//~ NULL,
+		//~ bufferinfo.length,
+		//~ PROT_READ | PROT_WRITE,
+		//~ MAP_SHARED,
+		//~ fd,
+		//~ bufferinfo.m.offset
+    //~ );
+    
+    //~ if(buffer_start == MAP_FAILED) {
+		//~ perror("mmap");
+		//~ return(-1);
+    //~ }
+    
+    //~ memset(buffer_start, 0, bufferinfo.length);
+    
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if(ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
 		perror("VIDIOC_STREAMON");
 		return -1;
@@ -259,23 +327,39 @@ cam_controls_v4l2 *query_camera_controls(void) {
 }
 
 s32 poll_cam(image_t *image) {
-	for(s32 i = 0; i < bufrequest.count; i++) {
-	    if(ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
-			perror("VIDIOC_QBUF");
-			return (-1);
-	    }
-	    
-	    s32 i = image->cols * image->rows;
-	    register rgb888_pixel_t *s = (rgb888_pixel_t*)buffer_start;
-		register rgb888_pixel_t *d = (rgb888_pixel_t*)image->data;
-	    
-	    while(i--)
-			*d++ = *s++;
-	    
-	    if(ioctl(fd, VIDIOC_DQBUF, &bufferinfo) < 0) {
-			perror("VIDIOC_DQBUF");
-			return(-1);
-	    }
+	fd_set fds; 
+	FD_ZERO(&fds);
+	FD_SET(fd, &fds);
+	if (select(fd + 1, &fds, NULL, NULL, NULL) <= 0) {
+		perror("select");
+		return -1;
+	}
+	
+	struct v4l2_buffer b = {0};
+	b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	b.memory = V4L2_MEMORY_MMAP;
+	
+	if(ioctl(fd, VIDIOC_DQBUF, &b) < 0) {
+		perror("VIDIOC_DQBUF");
+		return(-1);
+	}
+	
+	//~ register rgb888_pixel_t *s = (rgb888_pixel_t*)buffer_start;
+	//~ register rgb888_pixel_t *d = (rgb888_pixel_t*)image->data;
+	
+	u8* src = (u8*)mmaps[b.index].start;
+	u8* dst = (u8*)image->data;
+	
+	s32 dst_stride = image->cols * 3;
+	s32 src_stride = bytes_per_line > 0 ? bytes_per_line : (width * 3);
+	
+	for (s32 y = 0; y < image->rows; ++y){
+		memcpy(dst + y * dst_stride, src + y * src_stride, width *3);
+	}
+	
+	if(ioctl(fd, VIDIOC_QBUF, &b) < 0) {
+		perror("VIDIOC_QBUF");
+		return (-1);
 	}
 	
 	return 0;
@@ -286,6 +370,10 @@ s32 close_cam() {
 		perror("VIDIOC_STREAMOFF");
 		return(-1);
     }
+    for (s32 i = 0; i < mmap_count; ++i){
+		if(mmaps[i].start && mmaps[i].length) munmap(mmaps[i].start, mmaps[i].length);
+	}
+	free(mmaps); mmaps = NULL; mmap_count = 0;
     close(fd);
     
     return 0;
